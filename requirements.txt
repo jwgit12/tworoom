@@ -1,0 +1,2 @@
+torch>=2.1
+lewm @ git+https://github.com/jwgit12/lewm.git@90dd712789d69133a213da40fe2200075143ca83
