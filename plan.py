@@ -49,14 +49,15 @@ def cem(cost_fn, mean, samples, elites, iters):
 def lewm_cost(model, obs, goal_emb, action_mean, action_std, frameskip, max_batch=600):
     """Squared distance between the imagined embeddings and the goal embedding, averaged over the plan.
 
-    obs: (B, 1, C, H, W) current frames, goal_emb: (B, D). Each planned action is held for `frameskip`
-    raw steps, which gives the model's action_dim = frameskip * 2 after normalization.
+    obs: (B, 1, C, H, W) current frames, goal_emb: (B, D). Each planned step holds 2 dims (one action
+    for all `frameskip` raw steps) or frameskip * 2 (one per raw step); either way the model gets its
+    action_dim = frameskip * 2 after normalization.
     """
 
     def cost(plans):
-        B, N, H, A = plans.shape
-        actions = (plans.unsqueeze(3).expand(B, N, H, frameskip, A) - action_mean) / action_std
-        actions = actions.reshape(B, N, H, frameskip * A)
+        B, N, H, _ = plans.shape
+        actions = plans.reshape(B, N, H, -1, 2).expand(B, N, H, frameskip, 2)
+        actions = ((actions - action_mean) / action_std).reshape(B, N, H, frameskip * 2)
         per_call = max(1, max_batch // N)  # rollout gets slow on MPS beyond ~600 sequences per call
         imagined = []
         for i in range(0, B, per_call):
@@ -72,13 +73,13 @@ def oracle_cost(pos, goal, frameskip):
     """Euclidean distance to the goal, averaged over the plan, simulating each plan in the real game."""
 
     def cost(plans):
-        B, N, H, A = plans.shape
+        B, N, H, _ = plans.shape
         p = pos[:, None].expand(B, N, 2).reshape(B * N, 2)
-        actions = plans.cpu().reshape(B * N, H, A)
+        actions = plans.cpu().reshape(B * N, H, -1, 2).expand(B * N, H, frameskip, 2)
         total = 0
         for h in range(H):
-            for _ in range(frameskip):
-                p = tworoom.step(p, actions[:, h])
+            for k in range(frameskip):
+                p = tworoom.step(p, actions[:, h, k])
             total = total + (p.view(B, N, 2) - goal[:, None]).norm(dim=-1)
         return (total / H).to(plans.device)
 
@@ -123,6 +124,8 @@ def main():
     p.add_argument("--threshold", type=float, default=0.05, help="success distance (one dot radius)")
     p.add_argument("--save-png", default="plans.png")
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--vary-actions", action="store_true",
+                   help="plan one action per raw step instead of holding one for all frameskip steps")
     args = p.parse_args()
 
     torch.manual_seed(args.seed)
@@ -139,7 +142,7 @@ def main():
     with torch.no_grad():
         goal_emb = model.encode(to_pixels(tworoom.render(goal).to(device)))[:, 0]
 
-    plan = torch.zeros(args.episodes, args.horizon, 2, device=device)
+    plan = torch.zeros(args.episodes, args.horizon, 2 * fs if args.vary_actions else 2, device=device)
     reached = torch.zeros(args.episodes, dtype=torch.bool)
     steps_to_goal = torch.full((args.episodes,), float("nan"))
     history = [pos.clone()]
@@ -155,9 +158,9 @@ def main():
             cost = oracle_cost(pos[idx], goal[idx], fs)
         best = cem(cost, plan[idx], args.samples, args.elites, args.iters)
 
-        action = best[:, 0].cpu()
-        for _ in range(fs):
-            pos[idx] = tworoom.step(pos[idx], action)
+        action = best[:, 0].cpu().reshape(len(idx), -1, 2).expand(len(idx), fs, 2)
+        for k in range(fs):
+            pos[idx] = tworoom.step(pos[idx], action[:, k])
         plan[idx] = torch.cat([best[:, 1:], torch.zeros_like(best[:, :1])], 1)  # warm start: shift by one step
 
         done = ~reached & ((pos - goal).norm(dim=-1) < args.threshold)
@@ -169,7 +172,7 @@ def main():
     print()
     dist = (pos - goal).norm(dim=-1)
     rate = lambda mask: f"{reached[mask].float().mean():.0%} (n={int(mask.sum())})"
-    print(f"planner={args.planner} horizon={args.horizon} budget={args.max_steps} steps "
+    print(f"planner={args.planner} horizon={args.horizon} vary_actions={args.vary_actions} budget={args.max_steps} steps "
           f"({args.max_steps * fs} raw actions), CEM {args.samples} samples x {args.iters} iters")
     print(f"success {rate(torch.ones_like(cross))} | same room {rate(~cross)} | through the door {rate(cross)}")
     print(f"steps to goal (successes) {steps_to_goal.nanmean():.1f} | final distance median {dist.median():.3f} | "
