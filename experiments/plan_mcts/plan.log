@@ -1,0 +1,5 @@
+planner=mcts door=moving context=3 horizon=20 budget=25 steps (125 raw actions), MCTS 1000 sims, 9 predefined actions, c=1.0
+success 88% (n=200) | same room 89% (n=103) | through the door 86% (n=97)
+steps to goal (successes) 7.1 | final distance median 0.029 | 3.3s per episode
+saved per-task results to experiments/plan_mcts/results.pt
+saved the first episodes to experiments/plan_mcts/plans.png (green = goal, pink = path taken)

@@ -1,0 +1,5 @@
+planner=lewm door=moving context=3 horizon=20 budget=25 steps (125 raw actions), CEM 300 samples x 10 iters
+success 77% (n=200) | same room 95% (n=103) | through the door 59% (n=97)
+steps to goal (successes) 7.5 | final distance median 0.029 | 11.5s per episode
+saved per-task results to experiments/plan_cem/results.pt
+saved the first episodes to experiments/plan_cem/plans.png (green = goal, pink = path taken)

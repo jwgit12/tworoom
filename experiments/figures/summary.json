@@ -1,0 +1,407 @@
+{
+  "validation_episodes": 600,
+  "environment_example_episode": 4015,
+  "data": {
+    "episodes": 6000,
+    "crossing_fraction_all": 0.5835000276565552,
+    "crossing_fraction_random_walk": 0.16699999570846558,
+    "crossing_fraction_door_seeking": 1.0,
+    "mean_crossings_random_walk": 0.22566667199134827,
+    "mean_crossings_door_seeking": 2.5843334197998047
+  },
+  "training": {
+    "epoch": 10.0,
+    "loss": 0.1357,
+    "pred": 0.0192,
+    "sigreg": 1.294,
+    "val_pred": 0.015,
+    "copy": 1.2363,
+    "r2_emb": 0.999,
+    "r2_pred": 0.999,
+    "r2_x": 1.0,
+    "r2_y": 1.0,
+    "r2_door": 1.0
+  },
+  "model": {
+    "config": {
+      "action_dim": 10,
+      "history_size": 3,
+      "num_preds": 1,
+      "img_size": 64,
+      "patch_size": 16,
+      "in_channels": 3,
+      "encoder_dim": 192,
+      "encoder_depth": 6,
+      "encoder_heads": 3,
+      "encoder_mlp_dim": 768,
+      "embed_dim": 192,
+      "proj_hidden_dim": 2048,
+      "action_hidden_dim": 10,
+      "action_mlp_ratio": 4,
+      "predictor_depth": 4,
+      "predictor_heads": 16,
+      "predictor_dim_head": 64,
+      "predictor_mlp_dim": 2048,
+      "predictor_dropout": 0.1,
+      "predictor_emb_dropout": 0.0
+    },
+    "frameskip": 5,
+    "parameters": 11756974,
+    "probe_parameters": 3274688
+  },
+  "probe": {
+    "val_mse_normalized": 0.0019,
+    "mean_frame_mse_normalized": 0.1584
+  },
+  "rollout": {
+    "pixel_imagined": [
+      7.857555465307087e-05,
+      7.883086800575256e-05,
+      7.732404628768563e-05,
+      0.00039646029472351074,
+      0.000520023750141263,
+      0.0006680337828584015,
+      0.000742009375244379,
+      0.0007629066240042448,
+      0.0008764021331444383,
+      0.0009466938790865242,
+      0.000966012361459434,
+      0.0011032117763534188,
+      0.0011216836282983422
+    ],
+    "pixel_encoded": [
+      7.828395609976724e-05,
+      7.882774661993608e-05,
+      7.74585860199295e-05,
+      7.651743362657726e-05,
+      7.936402107588947e-05,
+      7.757059938739985e-05,
+      7.390175596810877e-05,
+      8.045221329666674e-05,
+      7.97438551671803e-05,
+      7.969254511408508e-05,
+      7.870259287301451e-05,
+      8.044784772209823e-05,
+      8.199222065741196e-05
+    ],
+    "latent_imagined": [
+      8.896367944544181e-06,
+      9.311024768976495e-06,
+      9.529676390229724e-06,
+      1.0857634544372559,
+      1.4616937637329102,
+      1.8506810665130615,
+      2.2026429176330566,
+      2.4417381286621094,
+      2.6552982330322266,
+      3.4356436729431152,
+      3.688053607940674,
+      4.076209545135498,
+      4.294064998626709
+    ],
+    "latent_copy": [
+      326.01947021484375,
+      274.364013671875,
+      0.0,
+      252.0246124267578,
+      279.3927917480469,
+      318.59161376953125,
+      338.6224670410156,
+      340.0677490234375,
+      344.7674560546875,
+      357.9783935546875,
+      364.92431640625,
+      377.22357177734375,
+      378.36492919921875
+    ],
+    "dot_imagined": [
+      0.0024806493893265724,
+      0.002504299860447645,
+      0.00221136212348938,
+      0.0033534131944179535,
+      0.0038967588916420937,
+      0.00503966398537159,
+      0.0053280992433428764,
+      0.005396348424255848,
+      0.0055738273076713085,
+      0.006533433683216572,
+      0.0068911537528038025,
+      0.007241253275424242,
+      0.008050397969782352
+    ],
+    "dot_stay": [
+      0.23386114835739136,
+      0.1250000298023224,
+      0.0,
+      0.1212361603975296,
+      0.20292091369628906,
+      0.23833660781383514,
+      0.24126036465168,
+      0.24194756150245667,
+      0.24597740173339844,
+      0.2426033914089203,
+      0.2540414333343506,
+      0.2713063359260559,
+      0.2830672264099121
+    ],
+    "door_imagined": [
+      0.0022176802158355713,
+      0.0023821741342544556,
+      0.002500079572200775,
+      0.004004955291748047,
+      0.004999935626983643,
+      0.005312509834766388,
+      0.005932480096817017,
+      0.006149560213088989,
+      0.007187612354755402,
+      0.007334291934967041,
+      0.007797032594680786,
+      0.008450508117675781,
+      0.008320868015289307
+    ],
+    "door_stay": [
+      0.04999995231628418,
+      0.02499997615814209,
+      0.0,
+      0.02499997615814209,
+      0.04999995231628418,
+      0.07499992847442627,
+      0.09999990463256836,
+      0.12499988079071045,
+      0.14999985694885254,
+      0.17499983310699463,
+      0.19999980926513672,
+      0.2249997854232788,
+      0.2499997615814209
+    ],
+    "dot_missing_fraction": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0016666667070239782,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "door_missing_fraction": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "planning": {
+    "cem": {
+      "seconds_per_episode": 11.482320137023926,
+      "args": {
+        "ckpt": "checkpoints/lewm_tworoom_6000_moving_slow_seek.pt",
+        "planner": "lewm",
+        "episodes": 200,
+        "max_steps": 25,
+        "horizon": 20,
+        "samples": 300,
+        "elites": 30,
+        "iters": 10,
+        "threshold": 0.05,
+        "save_png": "experiments/plan_cem/plans.png",
+        "save_results": "experiments/plan_cem/results.pt",
+        "seed": 0,
+        "door": "moving",
+        "door_speed": 0.005,
+        "context": 3,
+        "sims": 200,
+        "uct_c": 1.0,
+        "directions": 8
+      },
+      "median_final_distance": 0.02850162982940674,
+      "mean_steps_to_goal_successes": 7.541935443878174,
+      "failures": {
+        "count": 45,
+        "same_room": 5,
+        "door": 40,
+        "closest_approach_median": 0.3399021029472351,
+        "closest_approach_below_0.10": 1,
+        "final_distance_median": 0.4094823896884918
+      },
+      "all": {
+        "success": 155,
+        "tasks": 200,
+        "rate": 0.775,
+        "wilson95": [
+          0.7122575346140798,
+          0.8273771621308439
+        ]
+      },
+      "same_room": {
+        "success": 98,
+        "tasks": 103,
+        "rate": 0.9514563106796117,
+        "wilson95": [
+          0.8913579718797461,
+          0.979089494275759
+        ]
+      },
+      "door": {
+        "success": 57,
+        "tasks": 97,
+        "rate": 0.5876288659793815,
+        "wilson95": [
+          0.488152877328067,
+          0.6804283431206368
+        ]
+      }
+    },
+    "mcts": {
+      "seconds_per_episode": 3.336004558801651,
+      "args": {
+        "ckpt": "checkpoints/lewm_tworoom_6000_moving_slow_seek.pt",
+        "planner": "mcts",
+        "episodes": 200,
+        "max_steps": 25,
+        "horizon": 20,
+        "samples": 300,
+        "elites": 30,
+        "iters": 10,
+        "threshold": 0.05,
+        "save_png": "experiments/plan_mcts/plans.png",
+        "save_results": "experiments/plan_mcts/results.pt",
+        "seed": 0,
+        "door": "moving",
+        "door_speed": 0.005,
+        "context": 3,
+        "sims": 1000,
+        "uct_c": 1.0,
+        "directions": 8
+      },
+      "median_final_distance": 0.029326414689421654,
+      "mean_steps_to_goal_successes": 7.108571529388428,
+      "failures": {
+        "count": 25,
+        "same_room": 11,
+        "door": 14,
+        "closest_approach_median": 0.08405070006847382,
+        "closest_approach_below_0.10": 16,
+        "final_distance_median": 0.1184992790222168
+      },
+      "all": {
+        "success": 175,
+        "tasks": 200,
+        "rate": 0.875,
+        "wilson95": [
+          0.8219846471534161,
+          0.9138808484078432
+        ]
+      },
+      "same_room": {
+        "success": 92,
+        "tasks": 103,
+        "rate": 0.8932038834951457,
+        "wilson95": [
+          0.8188183774260698,
+          0.9393132866448541
+        ]
+      },
+      "door": {
+        "success": 83,
+        "tasks": 97,
+        "rate": 0.8556701030927835,
+        "wilson95": [
+          0.7722041904209146,
+          0.9120372337532355
+        ]
+      }
+    },
+    "oracle": {
+      "seconds_per_episode": 0.10396165609359741,
+      "args": {
+        "ckpt": "checkpoints/lewm_tworoom_6000_moving_slow_seek.pt",
+        "planner": "oracle",
+        "episodes": 200,
+        "max_steps": 25,
+        "horizon": 20,
+        "samples": 300,
+        "elites": 30,
+        "iters": 10,
+        "threshold": 0.05,
+        "save_png": "experiments/plan_oracle/plans.png",
+        "save_results": "experiments/plan_oracle/results.pt",
+        "seed": 0,
+        "door": "moving",
+        "door_speed": 0.005,
+        "context": 3,
+        "sims": 200,
+        "uct_c": 1.0,
+        "directions": 8
+      },
+      "median_final_distance": 0.02311673015356064,
+      "mean_steps_to_goal_successes": 5.688442230224609,
+      "failures": {
+        "count": 1,
+        "same_room": 0,
+        "door": 1,
+        "closest_approach_median": 0.18433067202568054,
+        "closest_approach_below_0.10": 0,
+        "final_distance_median": 0.18485617637634277
+      },
+      "all": {
+        "success": 199,
+        "tasks": 200,
+        "rate": 0.995,
+        "wilson95": [
+          0.9722256001302286,
+          0.999116854010634
+        ]
+      },
+      "same_room": {
+        "success": 103,
+        "tasks": 103,
+        "rate": 1.0,
+        "wilson95": [
+          0.9640439678926562,
+          1.0000000000000002
+        ]
+      },
+      "door": {
+        "success": 96,
+        "tasks": 97,
+        "rate": 0.9896907216494846,
+        "wilson95": [
+          0.9438936439364473,
+          0.9981778821004262
+        ]
+      }
+    },
+    "mcnemar_cem_vs_mcts": {
+      "all": {
+        "only_cem_solved": 17,
+        "only_mcts_solved": 37,
+        "p_value": 0.009073340339587177
+      },
+      "same_room": {
+        "only_cem_solved": 9,
+        "only_mcts_solved": 3,
+        "p_value": 0.14599609375
+      },
+      "door": {
+        "only_cem_solved": 8,
+        "only_mcts_solved": 34,
+        "p_value": 6.877111491121468e-05
+      }
+    }
+  }
+}

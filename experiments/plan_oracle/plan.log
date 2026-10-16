@@ -1,0 +1,5 @@
+planner=oracle door=moving context=3 horizon=20 budget=25 steps (125 raw actions), CEM 300 samples x 10 iters
+success 100% (n=200) | same room 100% (n=103) | through the door 99% (n=97)
+steps to goal (successes) 5.7 | final distance median 0.023 | 0.1s per episode
+saved per-task results to experiments/plan_oracle/results.pt
+saved the first episodes to experiments/plan_oracle/plans.png (green = goal, pink = path taken)

@@ -30,6 +30,10 @@ class Windows:
         self.frames = data["frames"][episodes].to(device)  # uint8 (E, L + 1, 3, H, W)
         self.actions = ((data["actions"][episodes] - action_mean) / action_std).to(device)  # (E, L, A)
         self.pos = data["pos"][episodes].to(device)  # (E, L + 1, 2), only for the probe
+        if "door" in data:  # add the door height as a third probe target, per frame
+            door = data["door"][episodes]
+            door = door[:, None].expand(-1, self.pos.size(1)) if door.dim() == 1 else door
+            self.pos = torch.cat([self.pos, door[..., None].to(device)], -1)
         self.mean = torch.tensor(IMAGENET_MEAN, device=device).view(3, 1, 1)
         self.std = torch.tensor(IMAGENET_STD, device=device).view(3, 1, 1)
 
@@ -60,10 +64,10 @@ class Windows:
 
 
 def r2(pred, target):
-    """Coefficient of determination, averaged over output dims."""
+    """Coefficient of determination per output dim, as a list."""
     sse = (pred - target).square().sum(0)
     sst = (target - target.mean(0)).square().sum(0)
-    return (1 - sse / sst).mean().item()
+    return torch.where(sst > 1e-9, 1 - sse / sst, torch.nan).tolist()  # NaN for a constant target (fixed door)
 
 
 @torch.no_grad()
@@ -114,8 +118,11 @@ def evaluate(model, criterion, train, val, batch_size):
     # fit embedding -> (x, y) on train windows, then score it on val embeddings and on val predictions
     with_bias = lambda x: torch.cat([x.flatten(0, 1), torch.ones(x.size(0) * x.size(1), 1)], 1)
     W = torch.linalg.lstsq(with_bias(emb_tr), pos_tr.flatten(0, 1)).solution
-    metrics["probe_r2_emb"] = r2(with_bias(emb_va) @ W, pos_va.flatten(0, 1))
-    metrics["probe_r2_pred"] = r2(with_bias(pred_va) @ W, pos_va[:, n:].flatten(0, 1))
+    # per dim: dot x, dot y, and the door height when the data has one; the averages cover the dot only
+    metrics["probe_r2_emb_dims"] = r2(with_bias(emb_va) @ W, pos_va.flatten(0, 1))
+    metrics["probe_r2_pred_dims"] = r2(with_bias(pred_va) @ W, pos_va[:, n:].flatten(0, 1))
+    metrics["probe_r2_emb"] = sum(metrics["probe_r2_emb_dims"][:2]) / 2
+    metrics["probe_r2_pred"] = sum(metrics["probe_r2_pred_dims"][:2]) / 2
     model.train()
     return metrics
 
@@ -201,7 +208,9 @@ def main():
             f"epoch {epoch:3d} | {time.time() - t0:5.1f}s | lr {sched.get_last_lr()[0]:.1e} | "
             f"train loss {tr['loss']:.4f} (pred {tr['pred_loss']:.4f}, sigreg {tr['sigreg_loss']:.3f}) | "
             f"val pred {ev['pred_loss']:.4f} vs copy {ev['copy_loss']:.4f} | "
-            f"probe R2 emb {ev['probe_r2_emb']:.3f}, pred {ev['probe_r2_pred']:.3f}"
+            f"probe R2 emb {ev['probe_r2_emb']:.3f}, pred {ev['probe_r2_pred']:.3f} "
+            f"(x/y{'/door' if len(ev['probe_r2_emb_dims']) > 2 else ''} "
+            f"{'/'.join(f'{v:.2f}' for v in ev['probe_r2_emb_dims'])})"
         )
 
         Path(args.out).parent.mkdir(parents=True, exist_ok=True)

@@ -1,2 +1,3 @@
 torch>=2.1
 lewm @ git+https://github.com/jwgit12/lewm.git@461b07e53041644c073628a8ad8967663393b24d
+matplotlib>=3.8

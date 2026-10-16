@@ -1,0 +1,34 @@
+encoded 351000 train / 39000 val frames into emb space (dim 192) in 9.1s
+device=cuda probe params=3.27M steps=20000 batch=256
+step   1000 |  17.6s | lr 3.0e-04 | train mse 0.4446 | val mse 0.0608 vs mean frame 0.1584
+step   2000 |  34.9s | lr 3.0e-04 | train mse 0.0372 | val mse 0.0164 vs mean frame 0.1584
+step   3000 |  52.2s | lr 2.9e-04 | train mse 0.0133 | val mse 0.0111 vs mean frame 0.1584
+step   4000 |  69.5s | lr 2.8e-04 | train mse 0.0094 | val mse 0.0082 vs mean frame 0.1584
+step   5000 |  86.8s | lr 2.6e-04 | train mse 0.0074 | val mse 0.0067 vs mean frame 0.1584
+step   6000 | 104.1s | lr 2.4e-04 | train mse 0.0061 | val mse 0.0053 vs mean frame 0.1584
+step   7000 | 121.4s | lr 2.2e-04 | train mse 0.0050 | val mse 0.0048 vs mean frame 0.1584
+step   8000 | 138.6s | lr 2.0e-04 | train mse 0.0044 | val mse 0.0041 vs mean frame 0.1584
+step   9000 | 155.9s | lr 1.8e-04 | train mse 0.0038 | val mse 0.0035 vs mean frame 0.1584
+step  10000 | 173.1s | lr 1.6e-04 | train mse 0.0034 | val mse 0.0034 vs mean frame 0.1584
+step  11000 | 190.4s | lr 1.3e-04 | train mse 0.0030 | val mse 0.0029 vs mean frame 0.1584
+step  12000 | 207.6s | lr 1.1e-04 | train mse 0.0028 | val mse 0.0026 vs mean frame 0.1584
+step  13000 | 224.9s | lr 8.6e-05 | train mse 0.0025 | val mse 0.0025 vs mean frame 0.1584
+step  14000 | 242.1s | lr 6.5e-05 | train mse 0.0023 | val mse 0.0023 vs mean frame 0.1584
+step  15000 | 259.4s | lr 4.6e-05 | train mse 0.0022 | val mse 0.0021 vs mean frame 0.1584
+step  16000 | 276.6s | lr 3.0e-05 | train mse 0.0020 | val mse 0.0020 vs mean frame 0.1584
+step  17000 | 293.9s | lr 1.7e-05 | train mse 0.0020 | val mse 0.0020 vs mean frame 0.1584
+step  18000 | 311.1s | lr 7.7e-06 | train mse 0.0019 | val mse 0.0019 vs mean frame 0.1584
+step  19000 | 328.4s | lr 1.9e-06 | train mse 0.0018 | val mse 0.0019 vs mean frame 0.1584
+step  20000 | 345.6s | lr 0.0e+00 | train mse 0.0018 | val mse 0.0019 vs mean frame 0.1584
+saved held-out frames and reconstructions to experiments/probe_6000_moving_slow_seek_emb/probe.png
+rollouts on 600 held-out episodes, decoded dot position vs. the real one (arena is 1 x 1):
+  model step        0      1      2      3      4      5      6      7      8      9     10     11     12
+  imagined      0.003  0.003  0.002  0.003  0.004  0.005  0.005  0.005  0.006  0.007  0.007  0.007  0.008
+  no motion     0.000  0.120  0.234  0.317  0.342  0.346  0.343  0.328  0.324  0.325  0.322  0.340  0.359
+  dot missing      0%     0%     0%     0%     0%     0%     0%     0%     0%     0%     0%     0%     0%
+decoded door height vs. the real one:
+  door imagined 0.002  0.003  0.003  0.004  0.005  0.005  0.006  0.007  0.007  0.007  0.008  0.009  0.009
+  door stops    0.050  0.025  0.000  0.025  0.050  0.075  0.100  0.125  0.150  0.175  0.200  0.225  0.250
+  door missing     0%     0%     0%     0%     0%     0%     0%     0%     0%     0%     0%     0%     0%
+  (model steps 0-2 are observed, the rest imagined)
+saved 4 real vs. imagined episodes to experiments/probe_6000_moving_slow_seek_emb/rollout.png

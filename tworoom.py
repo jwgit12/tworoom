@@ -17,7 +17,7 @@ import torch
 RADIUS = 0.05
 SPEED = 0.025  # max displacement per step
 WALL_X = (0.47, 0.53)
-DOOR_Y = (0.38, 0.62)  # the default door; with --random-door each episode shifts it vertically
+DOOR_Y = (0.38, 0.62)  # the default door; with --moving-door it starts at a random height and moves
 DOOR_HALF = (DOOR_Y[1] - DOOR_Y[0]) / 2
 DOOR_MARGIN = 0.05  # keep at least this much wall above and below a random door
 
@@ -37,6 +37,29 @@ def random_door(n, generator=None):
     """Sample n door centers uniformly, keeping DOOR_MARGIN of wall above and below each door."""
     lo = DOOR_HALF + DOOR_MARGIN
     return lo + torch.rand(n, generator=generator) * (1 - 2 * lo)
+
+
+def move_door(door, direction, speed):
+    """Slide door centers by direction * speed, bouncing between the highest and lowest allowed heights."""
+    lo, hi = DOOR_HALF + DOOR_MARGIN, 1 - DOOR_HALF - DOOR_MARGIN
+    new = door + direction * speed
+    direction = torch.where((new < lo) | (new > hi), -direction, direction)
+    return new.clamp(lo, hi), direction
+
+
+def carry(pos, door):
+    """Push a dot that the moving wall now overlaps back into the door gap, so the wall carries it along."""
+    eps = 1e-6  # keep clear of the gap's edges so is_free holds despite rounding
+    y = torch.maximum(torch.minimum(pos[:, 1], door + DOOR_HALF - RADIUS - eps), door - DOOR_HALF + RADIUS + eps)
+    return torch.where(is_free(pos, door)[:, None], pos, torch.stack([pos[:, 0], y], -1))
+
+
+def world_step(pos, action, door=None, direction=None, door_speed=0.0):
+    """One raw step of the whole game: move a moving door (carrying the dot), then the dot."""
+    if door_speed > 0:
+        door, direction = move_door(door, direction, door_speed)
+        pos = carry(pos, door)
+    return step(pos, action, door), door, direction
 
 
 def is_free(pos, door=None):
@@ -134,32 +157,70 @@ def random_start(n, generator=None, door=None):
     return pos
 
 
-def generate(episodes, steps, size=64, seed=0, random_door_pos=False):
+def random_room_point(side, generator=None):
+    """side: (N,) bool, True for the left room -> (N, 2) random points clear of the wall and the border."""
+    margin = RADIUS + 0.02
+    x = margin + torch.rand(len(side), generator=generator) * (WALL_X[0] - RADIUS - 2 * margin)
+    x = torch.where(side, x, 1 - x)
+    y = margin + torch.rand(len(side), generator=generator) * (1 - 2 * margin)
+    return torch.stack([x, y], -1)
+
+
+def generate(episodes, steps, size=64, seed=0, door_speed=0.0, door_seeking=0.0):
     """Roll out a smooth random-walk policy. Returns a dict of tensors:
 
     frames  (E, steps + 1, 3, size, size) uint8
     actions (E, steps, 2) float, actions[:, t] moves frames[:, t] to frames[:, t + 1]
     pos     (E, steps + 1, 2) float, ground-truth dot position (only used for evaluation probes)
-    door    (E,) float, the door's vertical center, fixed within an episode
+    door    (E,) float, the door's vertical center, fixed within an episode; with door_speed > 0 it is
+            (E, steps + 1) instead: the door starts at a random height and direction and moves door_speed
+            per step, bouncing at the ends of its range
+    door_seeking: the fraction of episodes (the last ones) whose random walk is pulled toward a waypoint:
+    the door, then a random point in the other room, then the door again, which makes many more crossings
     """
     g = torch.Generator().manual_seed(seed)
     # draw doors only when asked, so default datasets stay identical to those made before the option existed
-    door = random_door(episodes, g) if random_door_pos else None  # None: the exact default DOOR_Y
+    moving = door_speed > 0
+    door = random_door(episodes, g) if moving else None  # None: the exact default DOOR_Y
+    direction = torch.where(torch.rand(episodes, generator=g) < 0.5, -1.0, 1.0) if moving else None
     pos = random_start(episodes, g, door)
     action = torch.rand(episodes, 2, generator=g) * 2 - 1
-    frames, actions, positions = [render(pos, size, door)], [], [pos]
+    seeking = torch.arange(episodes) >= episodes - round(door_seeking * episodes)
+    if seeking.any():
+        to_door = torch.ones(episodes, dtype=torch.bool)  # heading for the door, else for a point in a room
+        side = pos[:, 0] < 0.5  # the room the episode started the current leg in
+        target = torch.zeros(episodes, 2)
+    frames, actions, positions, doors = [render(pos, size, door)], [], [pos], [door]
     for _ in range(steps):
         # a random walk in action space: smooth enough to travel across rooms and through the door
         action = (action + 0.4 * torch.randn(episodes, 2, generator=g)).clamp(-1, 1)
+        if seeking.any():
+            door_y = door if door is not None else torch.full((episodes,), sum(DOOR_Y) / 2)
+            crossed = to_door & ((pos[:, 0] < 0.5) != side)  # through the door: pick a point in this room
+            target[crossed] = random_room_point(~side[crossed], g)
+            side, to_door = torch.where(crossed, ~side, side), to_door & ~crossed
+            arrived = ~to_door & ((pos - target).norm(dim=-1) < 0.1)  # reached it: head for the door again
+            to_door |= arrived
+            goal = torch.where(to_door[:, None], torch.stack([torch.full_like(door_y, 0.5), door_y], -1), target)
+            pull = (goal - pos) / (goal - pos).norm(dim=-1, keepdim=True).clamp_min(1e-6)
+            action = torch.where(seeking[:, None], (0.5 * action + 0.8 * pull).clamp(-1, 1), action)
+        if moving:
+            door, direction = move_door(door, direction, door_speed)
+            pos = carry(pos, door)
         pos = step(pos, action, door)
         frames.append(render(pos, size, door))
         actions.append(action)
         positions.append(pos)
+        doors.append(door)
+    if moving:
+        door = torch.stack(doors, 1)
+    elif door is None:
+        door = torch.full((episodes,), sum(DOOR_Y) / 2)
     return {
         "frames": torch.stack(frames, 1),
         "actions": torch.stack(actions, 1),
         "pos": torch.stack(positions, 1),
-        "door": door if door is not None else torch.full((episodes,), sum(DOOR_Y) / 2),
+        "door": door,
     }
 
 
@@ -170,10 +231,13 @@ if __name__ == "__main__":
     p.add_argument("--size", type=int, default=64)
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--out", default="data/tworoom.pt")
-    p.add_argument("--random-door", action="store_true", help="place the door at a random height per episode")
+    p.add_argument("--moving-door", type=float, default=0.0, metavar="SPEED",
+                   help="move the door up and down by SPEED per step (e.g. 0.01), from a random start")
+    p.add_argument("--door-seeking", type=float, default=0.0, metavar="FRAC",
+                   help="fraction of episodes that steer through the door and back instead of a plain random walk")
     args = p.parse_args()
 
-    data = generate(args.episodes, args.steps, args.size, args.seed, args.random_door)
+    data = generate(args.episodes, args.steps, args.size, args.seed, args.moving_door, args.door_seeking)
     crossed = ((data["pos"][..., 0] < 0.5).any(1) & (data["pos"][..., 0] > 0.5).any(1)).float().mean()
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     torch.save(data, args.out)

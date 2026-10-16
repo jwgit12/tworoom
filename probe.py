@@ -8,7 +8,7 @@ real frame, `model.rollout` predicts embeddings for the episode's true actions, 
 
     python probe.py --space cls                                    # train, save probe.png
     python probe.py --space emb                                    # train, save probe.png + rollout.png
-    python probe.py --space emb --load checkpoints/probe_tworoom_3000_emb.pt   # images only, no training
+    python probe.py --space emb --load checkpoints/probe_tworoom_6000_moving_slow_seek_emb.pt --rollout-context 3
 """
 
 import argparse
@@ -51,6 +51,18 @@ def dot_position(frames):
     return torch.stack([x, y], 1)  # 0 / 0 = NaN when no red pixel is found
 
 
+def door_position(frames):
+    """uint8 frames (N, 3, H, W) -> (N,) center of the door gap in [0, 1], read from the wall's pixel column.
+
+    Gap rows are those where the background shows through at the wall's x. NaN where no gap is drawn.
+    """
+    size = frames.size(-1)
+    lo, hi = int(tworoom.WALL_X[0] * size) + 1, int(tworoom.WALL_X[1] * size)
+    background = (frames[:, 1, :, lo:hi].int() > 150).all(-1)  # (N, H): green is high only on the background
+    coords = (torch.arange(size, device=frames.device) + 0.5) / size
+    return (background * coords).sum(1) / background.sum(1)  # 0 / 0 = NaN without a gap
+
+
 def labeled_grid(rows, row_labels, col_labels=None, title=None, gap=4, zoom=ZOOM):
     """rows: list of uint8 (N, 3, S, S) frame rows -> a uint8 (H, W, 3) image with labels on the left and on top."""
     tiles = torch.stack(rows)  # (R, N, 3, S, S)
@@ -79,13 +91,13 @@ def labeled_grid(rows, row_labels, col_labels=None, title=None, gap=4, zoom=ZOOM
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--ckpt", default="checkpoints/lewm_tworoom_3000.pt")
-    p.add_argument("--data", default="data/tworoom_3000.pt")
+    p.add_argument("--ckpt", default="checkpoints/lewm_tworoom_6000_moving_slow_seek.pt")
+    p.add_argument("--data", default="data/tworoom_6000_moving_slow_seek.pt")
     p.add_argument("--space", choices=["cls", "emb"], default="cls",
                    help="cls: the encoder's CLS token, as in the paper; emb: the projector output LeWM plans in")
-    p.add_argument("--out", default=None, help="probe checkpoint (default checkpoints/probe_tworoom_3000_<space>.pt)")
+    p.add_argument("--out", default=None, help="probe checkpoint (default checkpoints/probe_tworoom_6000_moving_slow_seek_<space>.pt)")
     p.add_argument("--load", default=None, help="skip training and use this trained probe checkpoint")
-    p.add_argument("--outdir", default=None, help="where the images go (default experiments/probe_3000_<space>)")
+    p.add_argument("--outdir", default=None, help="where the images go (default experiments/probe_6000_moving_slow_seek_<space>)")
     p.add_argument("--patch-size", type=int, default=8)
     p.add_argument("--steps", type=int, default=20000)
     p.add_argument("--batch-size", type=int, default=256)
@@ -94,11 +106,13 @@ def main():
     p.add_argument("--eval-every", type=int, default=1000)
     p.add_argument("--rollout-steps", type=int, default=12, help="imagined model steps (frameskip raw actions each)")
     p.add_argument("--rollout-episodes", type=int, default=4, help="episodes drawn in rollout.png")
+    p.add_argument("--rollout-context", type=int, default=1,
+                   help="real frames observed before imagining (more than one shows a moving door's direction)")
     p.add_argument("--val-frac", type=float, default=0.1, help="must match train.py to hold out its val episodes")
     p.add_argument("--seed", type=int, default=0, help="must match train.py's seed for the same split")
     args = p.parse_args()
-    args.out = args.out or f"checkpoints/probe_tworoom_3000_{args.space}.pt"
-    outdir = Path(args.outdir or f"experiments/probe_3000_{args.space}")
+    args.out = args.out or f"checkpoints/probe_tworoom_6000_moving_slow_seek_{args.space}.pt"
+    outdir = Path(args.outdir or f"experiments/probe_6000_moving_slow_seek_{args.space}")
     outdir.mkdir(parents=True, exist_ok=True)
 
     torch.manual_seed(args.seed)
@@ -217,12 +231,13 @@ def train_probe(args, shape, train_z, train_frames, val_z, val_frames, to_pixels
 
 @torch.no_grad()
 def decode_rollouts(args, model, probe, data, val_eps, ckpt, to_pixels, to_uint8, autocast, device, outdir):
-    """Imagine each held-out episode from its first frame and its true actions, then decode every step.
+    """Imagine each held-out episode from its first frames and its true actions, then decode every step.
 
     Model step k is raw frame k * frameskip; its action is the next frameskip raw actions, normalized as in
-    training. Only frame 0 is observed, the rest is imagined, as when planning.
+    training. The first `--rollout-context` frames are observed, the rest is imagined, as when planning.
     """
     fs, K = ckpt["frameskip"], args.rollout_steps
+    c = max(1, min(args.rollout_context, model.config.history_size))
     assert K * fs <= data["actions"].size(1), f"episodes have {data['actions'].size(1)} raw steps, need {K * fs}"
     frame_idx = torch.arange(K + 1) * fs
     real = data["frames"][val_eps][:, frame_idx].to(device)  # (E, K + 1, 3, H, W)
@@ -233,7 +248,7 @@ def decode_rollouts(args, model, probe, data, val_eps, ckpt, to_pixels, to_uint8
     imagined = []
     for i in range(0, len(real), 256):
         with autocast:
-            emb = model.rollout(to_pixels(real[i : i + 256, :1]), actions[i : i + 256])  # (B, K + 1, D)
+            emb = model.rollout(to_pixels(real[i : i + 256, :c]), actions[i : i + 256])  # (B, K + 1, D)
             imagined.append(to_uint8(probe(emb.float())))
     imagined = torch.cat(imagined)  # (E, K + 1, 3, H, W)
 
@@ -247,6 +262,18 @@ def decode_rollouts(args, model, probe, data, val_eps, ckpt, to_pixels, to_uint8
     print("  imagined     " + " ".join(f"{e:6.3f}" for e in err.nanmedian(0).values.tolist()))
     print("  no motion    " + " ".join(f"{e:6.3f}" for e in stay.median(0).values.tolist()))
     print("  dot missing  " + " ".join(f"{m:6.0%}" for m in err.isnan().float().mean(0).tolist()))
+    lines = []
+    if "door" in data and data["door"].dim() == 2:  # a moving door: does the model imagine it moving?
+        true_door = data["door"][val_eps][:, frame_idx].to(device)
+        door_err = (door_position(imagined.flatten(0, 1)).view(E, K + 1) - true_door).abs()
+        door_stay = (true_door[:, c - 1 : c] - true_door).abs()  # baseline: the door stops where last seen
+        lines = [("door imagined", door_err.nanmedian(0).values.tolist(), "{:6.3f}"),
+                 ("door stops   ", door_stay.median(0).values.tolist(), "{:6.3f}"),
+                 ("door missing ", door_err.isnan().float().mean(0).tolist(), "{:6.0%}")]
+        print("decoded door height vs. the real one:")
+        for name, vals, fmt in lines:
+            print(f"  {name}" + " ".join(fmt.format(v) for v in vals))
+    print(f"  (model steps 0-{c - 1} are observed, the rest imagined)")
 
     # show episodes that move across the wall when there are some, since that is where the model struggles
     side = true_pos[..., 0] < 0.5
@@ -257,9 +284,10 @@ def decode_rollouts(args, model, probe, data, val_eps, ckpt, to_pixels, to_uint8
     for e in pick.tolist():
         rows += [real[e], imagined[e]]
         labels += [f"real {e}", f"imagined {e}"]
-    cols = ["t=0"] + [f"+{k}" for k in range(1, K + 1)]
+    cols = [f"obs {k}" for k in range(c)] + [f"+{k}" for k in range(c, K + 1)]
     img = labeled_grid(rows, labels, cols,
-                       title=f"rollouts decoded by the emb probe. t=0 observed, +k = imagined k model steps = {fs}k raw actions later")
+                       title=f"rollouts decoded by the emb probe. {c} observed frames, then +k = model step k "
+                             f"({fs}k raw actions), imagined")
     tworoom.save_png(outdir / "rollout.png", img.cpu())
     print(f"saved {len(pick)} real vs. imagined episodes to {outdir / 'rollout.png'}")
     (outdir / "rollout_error.txt").write_text(
@@ -268,6 +296,8 @@ def decode_rollouts(args, model, probe, data, val_eps, ckpt, to_pixels, to_uint8
         + "imag " + " ".join(f"{e:6.3f}" for e in err.nanmedian(0).values.tolist()) + "\n"
         + "stay " + " ".join(f"{e:6.3f}" for e in stay.median(0).values.tolist()) + "\n"
         + "miss " + " ".join(f"{m:6.0%}" for m in err.isnan().float().mean(0).tolist()) + "\n"
+        + "".join(f"{name.strip()}: " + " ".join(fmt.format(v) for v in vals) + "\n" for name, vals, fmt in lines)
+        + f"model steps 0-{c - 1} observed\n"
     )
 
 
